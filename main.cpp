@@ -1,176 +1,60 @@
-//
-// Created by chelseaw on 18/04/17.
-//
 
 #include <iostream>
+#include <string>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include "opencv2/stitching.hpp"
-
-using namespace std;
+#include <math.h>
+#include "Circle.h"
 using namespace cv;
+using namespace std;
 
-const String keys =
-        "{help h usage ?  |      | print this message   }"
-// "{@image          |<none>| image to show        }"
-;
+const double pi=3.14159265358;
 
-// store the position of trackbar
-int factorAmount=10;
-int num;
+struct data_struct{
+    Mat* img;
+    Circle * circle;
+};
+static void onChange(int pos,void* userinput);
+//static void onMouse( int event, int x, int y, int, void* userInput);
+int main() {
+    //define a image;
+    int pos=10;
+    Point center_circle(400,400);
+    Mat img(900,900,CV_8UC3,Scalar(255,255,255));
+    cvNamedWindow("window",CV_WINDOW_AUTOSIZE);
 
-// call back function to execute every time the trackbar change
-static void onChange(int pos, void* userInput);
-void call_menu();
+    //instantiate an object of Circle
+    Circle circle_o(center_circle,300.0);
 
-int main( int argc, const char** argv )
-{
-    CommandLineParser parser(argc, argv, keys);
-    parser.about("ISEP C++ 2017");
-    if (parser.has("help")) {
-        parser.printMessage();
-        return 0;
-    }
+    //instantiate an object of structure data
+    data_struct data;
+    data.circle=&circle_o;
+    data.img=&img;
 
-// String img_filename = parser.get<String>(0);
+    createTrackbar("trackbar_circle","window",&pos,360,onChange,&data);
+    circle(img, cv::Point( 400,400 ), 300.0, Scalar( 0, 0, 255 ), 1, 8 );
+    // this is red circle
+    imshow("window",img);
 
-    if (!parser.check()) {
-        parser.printErrors();
-        return 0;
-    }
-
-    do
-    {
-            call_menu();
-            
-            if (num ==0)
-            {
-                    return 0;
-            }
-
-    if (num == 6)
-    {int number_files =0;
-
-        cout << "How many files you want to read ? "<<endl;
-        cin >> number_files;
-
-        vector<string> files(number_files);
-
-        bool try_use_gpu = false;
-        Stitcher::Mode mode = Stitcher::PANORAMA;
-        vector<Mat> imgs;
-        string result_name = "result.jpg";
-
-        for(int i =0; i < number_files;++i)
-        {
-            //read files
-            cout << "\nPlease input the image file name (for example: joconde.jpg): "<<endl;
-            cin >> files[i];
-
-            Mat img = imread(files[i]);
-            imgs.push_back(img);
-        }
-
-        //use stiching function
-        Mat pano;
-        Ptr<Stitcher> stitcher = Stitcher::create(mode, try_use_gpu);
-        Stitcher::Status status = stitcher->stitch(imgs, pano);
-
-        if (status != Stitcher::OK)
-        {
-            cout << "Can't stitch images, error code = " << int(status) << endl;
-            return -1;
-        }
-
-        imwrite(result_name, pano);
-        imshow(result_name, pano);
-
-        waitKey(0);
-        
-        destroyWindow(result_name);
-    }
-    else
-    {
-        string imageName;
-        cout<<"\n Please tell me which image you like (for example: joconde.jpg): " <<endl;
-        cin >> imageName;
-
-        Mat img = imread(imageName);
-        namedWindow("Original", WINDOW_AUTOSIZE);
-            
-        Mat imgFactor;
-        namedWindow("Modified", WINDOW_AUTOSIZE);//create window for blur image
-
-        // create the Trackbar
-        createTrackbar("Factor", "Modified", &factorAmount, 20, onChange, &img);
-
-        imshow("Original", img);
-
-        // Call back to onChange function
-        onChange(factorAmount, &img);
-
-        // wait app for a key to exit
-        waitKey(0);
-
-        // Destroy the windows
-        destroyWindow("Original");
-        destroyWindow("Modified");
-            
-    }
-    }while(1);
-        return 0;
+    cv::waitKey(0);
+    cvDestroyWindow("window");
+    return 0;
 }
+static void onChange(int current_position,void* userinput){
+    //cast userinput to data_struct defined early;
+    data_struct*data=(data_struct*)userinput;
+    Mat image=data->img->clone();
+    Circle *circle=data->circle;
+    cout<<"current_position"<<current_position<<endl;
 
-// Trackbar call back function
-static void onChange(int pos , void* userInput)
-{
-    if(pos <= 0)
-        return;
-    // result
-    Mat imgFactor;
-    namedWindow("Modified", WINDOW_AUTOSIZE);//create window for blur image
-
-    // casting the input user img to
-    Mat* img= (Mat*)userInput;
-    Mat element = getStructuringElement( MORPH_RECT, Size(2*pos+1,2*pos+1), Point(pos,pos));
-
-    // Apply a filter
-    switch (num){
-        case 1:
-            blur(*img, imgFactor, Size(pos, pos));
-            break;
-
-        case 2:
-            resize(*img, imgFactor, Size(63*pos,48*pos));
-            break;
-
-        case 3:
-            erode(*img, imgFactor, element);
-            break;
-
-        case 4:
-            dilate(*img, imgFactor, element);
-            break;
-
-        case 5:
-            img->convertTo(imgFactor, -1, 0.1*pos, pos);
-            break;
-    }
-
-    // Show the result
-    imshow("Modified", imgFactor);
+    Point p=circle->Circle_edge_point(image,((float)(current_position)/360)*2*pi);
+    circle->add_point(p);
+    cout<<"(current_position/360)*2*pi:="<<(current_position/360)*2*pi<<endl;
+    // draw the point using a big circle;
+    namedWindow("window");
+    imshow("window",image);
 
 }
 
-void call_menu()
-{
-    cout <<"Please tell me which option you choose: " << endl;
-    cout <<" 1 -> blur " << endl;
-    cout <<" 2 -> resize " << endl;
-    cout <<" 3 -> erode " << endl;
-    cout <<" 4 -> dilate " << endl;
-    cout <<" 5 -> brighten / darken " << endl;
-    cout <<" 6 -> panorama \n " << endl;
-    cout <<" Press '0' to exit ... \n" << endl;
-    cin  >> num;
-}
+
